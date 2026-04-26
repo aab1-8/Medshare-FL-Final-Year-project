@@ -1,60 +1,77 @@
 @startuml
 !theme vibrant
-title MedShare Sequence: Federated Round Execution
+title MedShare Sequence: Secure Federated Execution
 
 actor "Hospital Node" as NODE
 participant "Flower Client" as CLIENT
+participant "Training Engine" as ENGINE
 participant "PyTorch Model" as MODEL
 participant "Opacus Engine" as PRIVACY
-database "Local Data" as DATA
-participant "Blockchain Service" as CHAIN
-participant "Smart Contract" as CONTRACT
-participant "Aggregation Server" as SERVER
-participant "Strategy (Defense)" as STRAT
+participant "MedShareBlockchain" as BCM
+participant "Reputation.sol" as REP
+participant "MedShareTask.sol" as TASK
+participant "CommitmentRegistry.sol" as REG
+participant "Flower ServerApp" as SERVER
+participant "AnomalyMonitoringStrategy" as STRAT
 
-== Initialization ==
-SERVER -> CLIENT : Request Initial Parameters
-CLIENT -> MODEL : get_parameters()
-CLIENT --> SERVER : Return Random/Init Weights
+== Initialization & Gatekeeping ==
+SERVER -> BCM : 1. Verify Node Reputation
+BCM -> REP : getScore(node_address)
+REP --> BCM : Return Score (e.g., 100)
+BCM --> SERVER : node_authorized = (Score >= 0)
+
+SERVER -> TASK : 2. createTask (Lock ETH Bounty)
+NODE -> TASK : joinTask (Register for FL)
 
 == Training Round (Loop) ==
-SERVER -> CLIENT : 1. fit(global_weights)
+SERVER -> CLIENT : 3. fit(global_weights)
 activate CLIENT
 
 CLIENT -> MODEL : set_parameters(global_weights)
-CLIENT -> DATA : Load Batch
-CLIENT -> MODEL : Forward Pass
-MODEL -> PRIVACY : Calculate Gradients (Clipped)
-PRIVACY -> PRIVACY : Add Gaussian Noise (sigma=1.0)
-PRIVACY --> MODEL : Update Weights (Backprop)
+CLIENT -> ENGINE : train(model, data)
+ENGINE -> MODEL : Forward Pass (net(images))
+ENGINE -> PRIVACY : DP-SGD (Gradient Clipping & Noise)
+ENGINE -> MODEL : Update Weights (Backprop + FedProx Penalty)
 
-CLIENT -> CHAIN : Hash & Sign(New Weights)
-activate CHAIN
-CHAIN -> CONTRACT : postCommitment(round, hash)
-CONTRACT --> CHAIN : Transaction Receipt (Gas Used)
-CHAIN --> CLIENT : Return tx_hash
-deactivate CHAIN
+CLIENT -> BCM : 4. Hash Weights & Log Audit
+activate BCM
+BCM -> REG : postCommitment(taskId, round, hash)
+REG --> BCM : Receipt (Gas Used)
+BCM --> CLIENT : gas_used
+deactivate BCM
 
-CLIENT --> SERVER : Return (New Weights, num_samples, tx_hash)
+CLIENT -> CLIENT : 5. SecAgg Cryptography (Mask Weights)
+CLIENT --> SERVER : 6. Return (Masked Weights, metrics(gas_used, epsilon))
 deactivate CLIENT
 
 == Aggregation Phase ==
-SERVER -> STRAT : aggregate_fit(results)
+SERVER -> STRAT : 7. aggregate_fit(results)
 activate STRAT
 
-STRAT -> STRAT : Calculate Norms
-STRAT -> STRAT : Robust-MAD Defense
-note right: "Drops malicious updates (e.g. Robust-MAD)"
+STRAT -> STRAT : Robust-MAD Defense (Filter outliers)
 
-STRAT -> CHAIN : postFinalModel(global_hash)
-CHAIN -> CONTRACT : Log Final Round Hash
-STRAT --> SERVER : Return Aggregated Global Model
+alt if node is malicious (outlier)
+    STRAT -> BCM : 8. Slash Reputation
+    BCM -> REP : updateReputation(node, -10)
+else if node is honest
+    STRAT -> BCM : Reward Reputation
+    BCM -> REP : updateReputation(node, +1)
+end
+
+STRAT -> BCM : 9. Record Global Proof
+BCM -> REG : postFinalWeights(taskId, global_hash)
+STRAT --> SERVER : Final Aggregated Model (FedAvg)
 deactivate STRAT
 
-== Evaluation ==
-SERVER -> CLIENT : evaluate(new_global_model)
-CLIENT -> DATA : Test on Holdout Set (Validation)
-CLIENT -> MODEL : accuracy_score()
-CLIENT --> SERVER : Return (Accuracy, Loss)
+== Evaluation & Cleanup ==
+SERVER -> CLIENT : 10. evaluate(global_model)
+CLIENT -> MODEL : Calculate Accuracy/AUC
+CLIENT --> SERVER : Accuracy Metric
+
+alt final round complete
+    SERVER -> TASK : 11. completeTask(taskId, hash)
+    TASK -> REP : Query Honest Score
+    TASK -> TASK : Release Bounty to Honest Nodes
+end
 
 @enduml

@@ -248,33 +248,26 @@ def run_simulation(args, config):
         for i, n in enumerate(names):
             # Use original ID for join logic to match contract checks
             orig_idx = name_to_original_idx[n]
-            
-            # RESERVED: Skip the first hospital in the script so it can be manually joined via the Dashboard UI
-            if i == 0:
-                print(f"[Blockchain] Hospital {n} (Account {orig_idx+1}) is reserved for MANUAL joining via the dashboard.")
-                continue
-                
-            bcm.join_task(created_task_id, orig_idx)
             initial_balances[orig_idx] = bcm.get_balance(orig_idx)
             
         import time
-        print(f"\\n{'='*60}")
-        print(f"🚨 DEMO PAUSE: WAITING FOR DASHBOARD HANDSHAKE! 🚨")
+        print(f"\n{'='*60}")
+        print(f"[DEMO PAUSE] WAITING FOR DASHBOARD HANDSHAKE!")
         print(f"-> Please open the Frontend Dashboard.")
-        print(f"-> Select Hospital Node 1.")
-        print(f"-> Click 'Link & Participate' on Task ETH-{created_task_id}.")
-        print(f"{'='*60}\\n")
+        print(f"-> The Task has been created with ID: ETH-{created_task_id}.")
+        print(f"-> Please manually link all required hospital nodes to this task via the dashboard.")
+        print(f"{'='*60}\n")
         
         try:
             while True:
                 # Index 5 in the Task Tuple is the Status Enum (0=Open, 1=Training, 2=Completed)
                 t_status = bcm.task_contract.functions.tasks(created_task_id).call()[5]
                 if t_status == 1:
-                    print(f"✅ Dashboard Participation Confirmed! Task is now fully subscribed (Training Status). Resuming AI Engine...\\n")
+                    print(f"[Success] Dashboard Participation Confirmed! Task is now fully subscribed (Training Status). Resuming AI Engine...\n")
                     break
                 time.sleep(2.0)
         except KeyboardInterrupt:
-            print(f"\\n🚨 Manual Bypass Triggered. Resuming simulation without dashboard confirmation...")
+            print(f"\n[Bypass] Manual Bypass Triggered. Resuming simulation without dashboard confirmation...")
 
     from flwr.common import ndarrays_to_parameters
     def fit_agg(m, server_round=None): return weighted_average(m, server_round=server_round, log_to_csv=False)

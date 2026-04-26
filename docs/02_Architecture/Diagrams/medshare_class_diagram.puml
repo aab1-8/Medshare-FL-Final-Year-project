@@ -1,16 +1,18 @@
 @startuml
 !theme vibrant
-title MedShare Class Diagram
+title MedShare Class Diagram: Final Combined Accuracy
 
-' --- Python Components ---
-package "medshare/client.py" {
+' --- Python ML Engine Components ---
+package "medshare/models.py" {
     class SurvivalMLP {
         +input_dim: int
         +num_classes: int
         +fc: Sequential
         +forward(x: Tensor) : Tensor
     }
+}
 
+package "medshare/client.py" {
     class FlowerSurvivalClient {
         -net: SurvivalMLP
         -trainloader: DataLoader
@@ -21,13 +23,14 @@ package "medshare/client.py" {
         +fit(parameters, config) : Tuple
         +evaluate(parameters, config) : Tuple
     }
+}
 
+package "medshare/strategy.py" {
     class AnomalyMonitoringStrategy {
         +latest_weights: List[np.array]
         +aggregate_fit(server_round, results, failures) : Tuple
         -check_audit_norms(results) : void
     }
-    
     class WeightCaptureWrapper {
         +base_strategy: Strategy
         +latest_weights: List[np.array]
@@ -35,42 +38,73 @@ package "medshare/client.py" {
     }
 }
 
-package "blockchain_service.py" {
+package "medshare/blockchain.py" {
     class MedShareBlockchain {
         +w3: Web3
-        +contract_registry: Contract
-        +contract_task: Contract
-        +post_commitment(task_id, round, weights) : Receipt
-        +post_final_model(task_id, weights) : Receipt
+        +task_contract: Contract
+        +registry_contract: Contract
+        +reputation_contract: Contract
+        +post_commitment(task_id, round, weights, client_id) : int
+        +post_final_model(task_id, weights) : int
         +authorize_hospital(hospital_idx) : void
+        +update_reputation(hospital_idx, change, reason) : void
         -hash_weights(weights) : bytes32
     }
 }
 
-' --- Solidity Contracts ---
+' --- Solidity Components ---
 package "Smart Contracts" {
+    struct Task {
+        +address researcher
+        +uint256 bounty
+        +string modelDescription
+        +uint256 minClients
+        +uint256 rounds
+        +TaskStatus status
+        +address[] hospitals
+    }
+    
+    class MedShareTask {
+        +tasks: mapping(uint256 => Task)
+        +taskCount: uint256
+        +admin: address
+        +createTask(description, minClients, rounds) : void
+        +joinTask(taskId) : void
+        +completeTask(taskId, finalModelHash) : void
+        +authorizeHospital(hospital, status) : void
+    }
+
     class CommitmentRegistry {
         +commitments: mapping
         +finalModelWeights: mapping
-        +postCommitment(taskId, round, hash) : event
-        +postFinalWeights(taskId, hash) : event
-        +authorizeHospital(address) : void
+        +isAuthorized: mapping(address => bool)
+        +postCommitment(taskId, round, hash) : void
+        +postFinalWeights(taskId, hash) : void
+        <<event>> CommitmentPosted(taskId, round, hash)
     }
 
-    class MedShareTask {
-        +tasks: mapping
-        +createTask(name, description, budget) : void
+    class Reputation {
+        +scores: mapping(address => int256)
+        +updateReputation(hospital, change, reason) : void
+        +getScore(hospital) : int256
+    }
+    
+    interface IReputation {
+        +getScore(address) : int256
     }
 }
 
-' --- Relationships ---
+' --- Relationships & Inheritance ---
+FlowerSurvivalClient --|> flwr.client.NumPyClient : "Inherits"
+AnomalyMonitoringStrategy --|> flwr.server.strategy.FedAvg : "Inherits"
+
 FlowerSurvivalClient --> SurvivalMLP : "Trains"
-FlowerSurvivalClient --> MedShareBlockchain : "Logs Hash"
-AnomalyMonitoringStrategy --> MedShareBlockchain : "Logs Final Model"
+FlowerSurvivalClient --> MedShareBlockchain : "Logs Proof"
+AnomalyMonitoringStrategy --> MedShareBlockchain : "Logs Final Result"
 WeightCaptureWrapper --> AnomalyMonitoringStrategy : "Wraps"
 MedShareBlockchain --> CommitmentRegistry : "Calls (RPC)"
 MedShareBlockchain --> MedShareTask : "Calls (RPC)"
-AnomalyMonitoringStrategy --|> flwr.server.strategy.FedAvg : "Inherits"
-FlowerSurvivalClient --|> flwr.client.NumPyClient : "Inherits"
-
+MedShareBlockchain --> Reputation : "Calls (RPC)"
+MedShareTask ..> Task : "Stores"
+MedShareTask ..> IReputation : "Checks Authorization"
 @enduml

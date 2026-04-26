@@ -114,7 +114,7 @@ A critical \textbf{Reliability Gap} exists between theoretical "Private FL" and 
 \subsection{Problem Statement: FL Vulnerabilities}
 Standard FL faces two primary failure modes:
 \begin{enumerate}[leftmargin=*, nosep]
-    \item \textbf{Inference (MIA)}: Adversaries analyse gradients to determine if specific patients were in a cohort-a high risk for small, high-dimensional clinical datasets.
+    \item \textbf{Inference (MIA)}: Adversaries analyse gradients to determine if specific patients were in a cohort-a high risk for small, high-dimensional clinical datasets \cite{nasr2019}.
     \item \textbf{Integrity (Poisoning)}: Malicious nodes submit poisoned gradients or flipped labels (e.g., inverting stroke skip-logic) to sabotage diagnostic protocols.
 \end{enumerate}
 
@@ -168,14 +168,14 @@ The conceptual basis for MedShare-FL is \textbf{FedAvg} \cite{mcmahan2017}, whic
 
 Where $n_k$ represents the local sample size of client $k$, and $n = \sum n_k$ is the total population across the consortium.
 
-While FedAvg is efficient, it lacks inherent defense against corrupted weight updates. We address malicious corruption via the Robust-MAD filter and further investigated \textbf{FedProx} \cite{li2020}, which solves the objective $\min_{\theta} F(\theta) + \frac{\mu}{2} ||\theta - \theta^t||^2$. This proximal term is critical for clinical "Statistical Skew"/Data Heterogeneity ($Non-IID$ data), as it stabilizes training under the noise injected during the DP process.
+While FedAvg is efficient, it lacks inherent defense against corrupted weight updates. We address malicious corruption via the Robust-MAD filter and further investigated \textbf{FedProx} \cite{li2020}, which solves the objective $\min_{\theta} F(\theta) + \frac{\mu}{2} ||\theta - \theta^t||^2$. This proximal term is critical for clinical "Statistical Skew"/Data Heterogeneity ($Non-IID$ data), as it stabilizes training under the noise injected during the DP process \cite{hardt2016}.
 
 \subsection{Privacy Theory: The Moments Accountant}
 To ensure a tight bound on cumulative privacy loss over many training rounds, MedShare-FL utilizes the \textbf{Moments Accountant} for Rényi Differential Privacy (RDP), tracking the log-moments $\alpha_M(\lambda)$ of the privacy loss random variable (\cite{abadi2016}):
 \begin{equation}
     \alpha_M(\lambda) = \sup_{D, D'} \log E_{s \sim M(D)} [ (\frac{P(M(D)=s)}{P(M(D')=s)})^{\lambda} ]
 \end{equation}
-Here, $\alpha_M$ is the log-moment of the privacy loss, $\lambda$ is the moment order, and $M(D), M(D')$ are Gaussian mechanisms applied to neighboring datasets. This ensures that after 30 rounds on the 253k CDC-Diabetes records, the total binary privacy budget remains strictly bounded within $\epsilon \approx 1.57$ via the tight composition of the Gaussian mechanism \cite{abadi2016}.
+Here, $\alpha_M$ is the log-moment of the privacy loss, $\lambda$ is the moment order, and $M(D), M(D')$ are Gaussian mechanisms applied to neighboring datasets. This ensures that after 30 rounds on the 253k CDC-Diabetes records, the total binary privacy budget remains strictly bounded within $\epsilon \approx 1.57$ via the tight composition of the Gaussian mechanism \cite{abadi2016, dworkroth2014}.
 
 \subsection{Byzantine Robustness and The Hampel Filter}
 We critically evaluated Krum \cite{blanchard2017} and Trimmed-Mean. While Krum assumes a fixed number of adversaries $f$, in a clinical marketplace, $f$ is unknown. We therefore implemented the \textbf{Robust-MAD Filter} based on the \textbf{Hampel Influence Function}\cite{hampel1974}. The Influence Function $IF(x; T, F)$ measures the effect of an infinitesimal contamination at point $x$ on the estimator $T$ under distribution $F$. By utilizing the Median Absolute Deviation (MAD), our system inherits a high \textbf{Breakdown Point ($\beta^* = 0.5$)} in the norm-space, ensuring that until 50\% of the hospital nodes are simultaneously compromised, the diagnostic integrity remains resilient under standard contamination assumptions.
@@ -395,7 +395,7 @@ claims to the primary logical artifacts in the repository:
 \end{itemize}
 
 \subsection{SMOTE Hyper-parameter Sweep (Thyroid Case Study)}
-For the imbalanced Thyroid dataset, we conducted a sweep of the \textbf{$k$-neighbors} parameter ($k \in \{3, 5, 7\}$) using SMOTE \cite{chawla2002}. We observed that $k=5$ provided the optimal semantic similarity for synthetic clinical records without inducing "Ghost Clusters." This increased the minority class recall from 72\% to 92.1\%.
+For the imbalanced Thyroid dataset \cite{uci-thyroid}, we conducted a sweep of the \textbf{$k$-neighbors} parameter ($k \in \{3, 5, 7\}$) using SMOTE \cite{chawla2002}. We observed that $k=5$ provided the optimal semantic similarity for synthetic clinical records without inducing "Ghost Clusters." This increased the minority class recall from 72\% to 92.1\%.
 
 \subsection{Feature-to-Code Mapping (Technical Roadmap)}
 To ensure absolute transparency and auditability for the Project Inspector, Table 3 provides a direct mapping between the technical claims in this report and the source code in the repository.
@@ -449,7 +449,7 @@ A single monolithic Solidity contract was the initial design. It was rejected fo
 
 \begin{enumerate}
     \item \textbf{Single Responsibility}: \texttt{MedShareTask.sol} governs task lifecycle and ETH bounty escrow. \texttt{CommitmentRegistry.sol} provides the immutable hash audit trail. \texttt{Reputation.sol} maintains the trust ledger. Separating these concerns ensures that a bug or upgrade in one contract (e.g., changing the bounty split formula) does not require redeployment of the entire audit trail, preserving historical integrity.
-    \item \textbf{Gas Efficiency}: The audit trail (\texttt{CommitmentRegistry}) is called on every training round by every node. Isolating it as a lightweight contract with \texttt{bytes32} storage establishes a stable baseline per-call gas cost (averaging 121,150 gas per commit, as verified in Appendix L). A monolithic equivalent handling both the escrow payout logic and the cyclic tree mapping would push updates well over an estimated 300,000+ gas. This modularity directly reduces the economic cost to participate in the marketplace.
+    \item \textbf{Gas Efficiency}: The audit trail (\texttt{CommitmentRegistry}) is called on every training round by every node. Isolating it as a lightweight contract with \texttt{bytes32} storage establishes a stable baseline per-call gas cost (averaging 121,150 gas per commit, as verified in Appendix P). A monolithic equivalent handling both the escrow payout logic and the cyclic tree mapping would push updates well over an estimated 300,000+ gas. This modularity directly reduces the economic cost to participate in the marketplace.
     \item \textbf{Security Isolation}: Smart contract reentrancy and logic bugs are isolated by contract boundary. The Checks-Effects-Interactions (CEI) pattern in \texttt{MedShareTask.completeTask()} protects the escrow even if the \texttt{Reputation} oracle is temporarily unavailable.
 \end{enumerate}
 
@@ -460,7 +460,7 @@ During the CDC-Diabetes DP sweep (Appendix O), we observed that as $\epsilon$ de
 
 Furthermore, we observed a counterintuitive \textbf{utility improvement} in highly imbalanced datasets like Thyroid (+15.0\%) and SUPPORT2 (+12.0\%) when Differential Privacy was active. This is explained by the noise acting as a \textbf{stochastic regularizer}. In extreme class-imbalance scenarios (e.g., 93/7 split), standard models often "overspecialize" on the majority class. The Gaussian noise injected by the DP mechanism prevents this premature convergence to a local majority-class optimum, forcing the model to learn more generalized clinical features and significantly improving minority-class recall. This finding supports the selection of $\epsilon=1.57$ as the "Privacy-Utility-Robustness" equilibrium point for MedShare-FL.
 
-This observation is the empirical basis for the \textbf{Privacy-Robustness Equilibrium Point} discussed in the Conclusion. It is the project's \textbf{key original scientific contribution}: we demonstrate that there exists an empirical noise floor $\sigma^*$ above which a MAD filter tuned for Byzantine resilience begins to harm the honest participants it is designed to protect. Identifying this equilibrium allows clinical researchers to precisely calibrate their privacy budgets to avoid the 'False-Positive Outlier' trap identified in Section 4.4.
+This observation is the empirical basis for the \textbf{Privacy-Robustness Equilibrium Point} discussed in the Conclusion. It is the project's \textbf{key original scientific contribution}: we demonstrate that there exists an empirical noise floor $\sigma^*$ above which a MAD filter tuned for Byzantine resilience begins to harm the honest participants it is designed to protect. Identifying this equilibrium allows clinical researchers to precisely calibrate their privacy budgets to avoid the 'False-Positive Outlier' trap identified in Section 4.3.
 
 \subsection{Why FedAvg as the Base, Not FedProx}
 \texttt{FedProx} \cite{li2020} adds a proximal regularisation term $\frac{\mu}{2}||\theta - \theta^t||^2$ to stabilise convergence under statistical heterogeneity. Whilst this is theoretically beneficial, it was used selectively rather than as the primary aggregation engine, for two reasons.
@@ -590,7 +590,7 @@ A core objective of this project was to evaluate the technical feasibility of a 
 
     \item \textbf{RQ3 (Latency \& Blockchain):} \textit{How does on-chain hash commitment impact the round-trip latency (RTT)?}
     
-    \textbf{Answer:} The integration of Ethereum-based hash commitments created an unavoidable serialization bottleneck. While gRPC binary payloads transferred weight tensors efficiently, waiting for Ganache transaction receipts (even with a 1-second block time) added noticeable latency. Our telemetry (Appendix L) showed the round-trip time (\textit{RTT}) scaling linearly from a baseline of \textbf{32.9s} (Round 1) to a peak of \textbf{58.2s} as the total blockchain state expanded. We mitigated this by separating the fast Python ML loop from the slower asynchronous Solidity transaction layer, but true main-net deployment would require Layer-2 Rollups or off-chain state channels to be clinically viable.
+    \textbf{Answer:} The integration of Ethereum-based hash commitments created an unavoidable serialization bottleneck. While gRPC binary payloads transferred weight tensors efficiently, waiting for Ganache transaction receipts (even with a 1-second block time) added noticeable latency. Our telemetry (Appendix P) showed the round-trip time (\textit{RTT}) scaling linearly from a baseline of \textbf{32.9s} (Round 1) to a peak of \textbf{58.2s} as the total blockchain state expanded. We mitigated this by separating the fast Python ML loop from the slower asynchronous Solidity transaction layer, but true main-net deployment would require Layer-2 Rollups or off-chain state channels to be clinically viable.
 \end{itemize}
 
 \subsection{Critical Self-Appraisal: Successes vs. Challenges}
@@ -652,7 +652,7 @@ Future iterations will integrate \textbf{Trusted Execution Environments (TEEs)} 
 
 \section{Case Study: CDC Diabetes Multiclass Diagnostics}
 
-\textit{This subsection presents a granular analysis of the system's performance on the 253,680-record CDC-Diabetes dataset \cite{cdc2015}, focusing on the categorical sensitivity of the MLP. Our cross-domain JSON audit logs (Appendix K) confirm that while 8 out of 10 domains maintained a perfect 100\% Reputation Score, the high-noise datasets (e.g., Stroke, SUPPORT2) experienced \textbf{Reputation Volatility}. This confirms that MedShare-FL prioritized the prevention of \textbf{Malicious Acceptance} (the inclusion of a poisoned update) over the avoidance of \textbf{Honest Rejection} (the mistaken filtering of a noisy hospital), accepting a minor diagnostic utility tax as a necessary trade-off for global model stability.}
+\textit{This subsection presents a granular analysis of the system's performance on the 253,680-record CDC-Diabetes dataset \cite{cdc2015}, focusing on the categorical sensitivity of the MLP. Our cross-domain JSON audit logs (Appendix O) confirm that while 8 out of 10 domains maintained a perfect 100\% Reputation Score, the high-noise datasets (e.g., Stroke, SUPPORT2 \cite{knaus1995}) experienced \textbf{Reputation Volatility}. This confirms that MedShare-FL prioritized the prevention of \textbf{Malicious Acceptance} (the inclusion of a poisoned update) over the avoidance of \textbf{Honest Rejection} (the mistaken filtering of a noisy hospital), accepting a minor diagnostic utility tax as a necessary trade-off for global model stability.}
 
 \begin{table}[hbt!]
 \centering

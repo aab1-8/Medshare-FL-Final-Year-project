@@ -57,3 +57,8 @@ build/*.dbg.json
 
 # --- FINAL VIVA ADDITION: TRACK AUDIT IMAGES ---
 !docs/assets/audit_results/*.png
+
+# Ignore large research PDFs and presentations for mirror repositories
+srce/*.pdf
+*.pdf
+*.pptx

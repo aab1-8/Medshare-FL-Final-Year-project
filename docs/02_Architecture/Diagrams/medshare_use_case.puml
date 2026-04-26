@@ -1,50 +1,71 @@
 @startuml
 !theme vibrant
-title MedShare Use Cases
+title MedShare Use Cases: Requirements Map
 
 left to right direction
 actor "Medical Researcher" as RESEARCHER
-actor "Hospital IT Admin" as ADMIN
-actor "Malicious Attacker" as ATTACKER
-actor "Auditor" as AUDITOR
+actor "Hospital Node" as HOSPITAL
+actor "Adversarial Hospital" as ADVERSARY
+actor "System Administrator" as ADMIN
+actor "Public Auditor" as AUDITOR
 
-rectangle "MedShare System" {
-    usecase "Initialize FL Task" as U1
-    usecase "Authorize Hospital Node" as U2
-    usecase "Train Local Model" as U3
-    usecase "Apply Differential Privacy" as U4
-    usecase "Post Blockchain Commitment" as U5
-    usecase "Aggregate Global Model" as U6
-    usecase "Defend Against Poisoning" as U7
-    usecase "Verify Audit Trail" as U8
-    usecase "Download Best Model" as U9
+HOSPITAL <|-- ADVERSARY : "Threat Model"
+
+rectangle "MedShare Platform" {
+    package "FL Management" {
+        usecase "Initialize FL Study" as U1
+        usecase "Join Study and Register" as U2
+        usecase "Visualize Performance" as VIZ
+        usecase "Download Aggregated Model" as DOWN
+    }
+    
+    package "Privacy & Defense" {
+        usecase "Train locally (DP + FedProx)" as U3
+        usecase "Mask Weights (SecAgg)" as SECAGG
+        usecase "Filter Outliers (Robust-MAD)" as U4
+        usecase "Inject Poisoned Gradient" as POISON
+    }
+    
+    package "Blockchain & Logistics" {
+        usecase "Post Audit Commitment (Hash)" as U5
+        usecase "Verify Immutable Audit Trail" as U6
+        usecase "Authorize Node via Reputation" as U7
+        usecase "Withdraw Study Bounty (ETH)" as U8
+    }
 }
 
+' Researcher Flow
 RESEARCHER --> U1
-RESEARCHER --> U9
-ADMIN --> U2
-ADMIN --> U3
-U3 ..> U4 : "include"
-U3 ..> U5 : "include"
+RESEARCHER --> VIZ
+RESEARCHER --> DOWN
 
-' System automatically handles aggregation
-U3 --> U6
-U6 ..> U7 : "include"
+' Hospital Flow
+HOSPITAL --> U2
+HOSPITAL --> U3
+HOSPITAL --> SECAGG
+HOSPITAL --> U5
+HOSPITAL --> U8
 
-ATTACKER --> U3 : "Inject Poisoned Data"
-U7 --> ATTACKER : "Block Malicious Update"
+' Malicious variation
+ADVERSARY --> POISON
+U4 ..> POISON : "<<includes>>\nDetect & Slash Reputation"
 
-AUDITOR --> U8
-U8 ..> U5 : "Verify Hash"
+' Admin Flow
+ADMIN --> U7
+U7 ..> U2 : "<<precondition>>"
 
-note right of U4
-  Opacus Engine
-  (Noise + Clipping)
+' Auditor Flow
+AUDITOR --> U6
+U6 ..> U5 : "<<verifies>>\nCheck Gas & Hashes"
+
+note top of U8
+  Bounty logic defined in
+  MedShareTask.sol
 end note
 
-note right of U7
-  Robust-MAD Defense
-  detects high norms
+note bottom of U7
+  Reputation logic defined in
+  Reputation.sol
 end note
 
 @enduml

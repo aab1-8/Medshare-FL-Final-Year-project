@@ -195,7 +195,7 @@ window.participateRequest = async (id) => {
     if (idx !== -1) {
         allRequests[idx].contributions += 1;
         saveRequests(allRequests);
-        
+
         // Finalize: Track this join permanently for this account in this study
         localStorage.setItem(joinedKey, "true");
 
@@ -256,18 +256,18 @@ window.finalizeBountyPayout = async (id) => {
 
     if (id.startsWith('ETH-') || id.startsWith('0x')) {
         let taskId;
-        if(id.startsWith('ETH-')){
+        if (id.startsWith('ETH-')) {
             taskId = parseInt(id.replace('ETH-', ''));
         } else {
-             // If local storage task representation, pull real ID if sync delayed
+            // If local storage task representation, pull real ID if sync delayed
             const { blockchain_getTaskCount } = await import('./blockchain.js');
-             // Rough approx for the demo if ID format mismatch
-            taskId = (await blockchain_getTaskCount()) - 1; 
+            // Rough approx for the demo if ID format mismatch
+            taskId = (await blockchain_getTaskCount()) - 1;
         }
-        
+
         const { blockchain_completeTask } = await import('./blockchain.js');
         const bResult = await blockchain_completeTask(taskId, "SHA256:MODERN-CLINICAL-MODEL-AUDIT-v1");
-        
+
         if (!bResult.success) {
             alert(`⚠️ Payout Failed:\n\n${bResult.error}`);
             if (btn) {

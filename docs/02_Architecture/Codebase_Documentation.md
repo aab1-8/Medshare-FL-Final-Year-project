@@ -2,6 +2,8 @@
 
 This document serves as the exhaustive taxonomy and technical manual for the MedShare project. It covers all moving parts including the Python Flower federated learning implementation, the Ethereum blockchain smart contracts, the frontend dashboard, and the data telemetry systems.
 
+For a concise end-to-end map of **logic files only** (Python, Solidity, JS, JSON roles) and known integration caveats, see [MedShare logic files](../architecture/MedShare_logic_files.md).
+
 ## 1. Root Orchestration & Execution
 
 *   **`federated_survival.py`**: The 582-line master simulation script. It controls the `flwr` (Flower) server/client orchestration, detects high-end GPUs (15GB VRAM) to scale batch sizes (up to 2048), handles `experiment` parameters (`dp`, `mi`, `robustness`, `latency`), and executes adaptive training loops across 7 different datasets. It outputs telemetry data directly to the `/test/` directory and frontend JSONs.

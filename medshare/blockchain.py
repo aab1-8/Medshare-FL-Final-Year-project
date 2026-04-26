@@ -301,6 +301,27 @@ class MedShareBlockchain:
             print(f"[Blockchain] Task finalization failed: {e}")
             return False
 
+    def claim_reward(self, hospital_idx):
+        """
+        Withdraws accumulated ETH rewards for a hospital node using the Pull Pattern.
+        This actually transfers the ETH from the contract's escrow to the hospital's wallet.
+        """
+        try:
+            assert (hospital_idx + 1) < len(self.w3.eth.accounts), "Hospital index exceeds wallet capacity"
+            acc = self.w3.eth.accounts[hospital_idx + 1]
+            
+            # Call claimReward() on the MedShareTask contract
+            tx = self.task_contract.functions.claimReward().transact({
+                'from': acc, # Hospital must sign the withdrawal themselves
+                'gasPrice': self.w3.to_wei(1, 'gwei')
+            })
+            self.w3.eth.wait_for_transaction_receipt(tx)
+            print(f"[Blockchain] Hospital {hospital_idx} claimed their reward.")
+            return True
+        except Exception as e:
+            print(f"[Blockchain] Claim reward failed for hospital {hospital_idx}: {e}")
+            return False
+
 
 class BlockchainManager:
     """

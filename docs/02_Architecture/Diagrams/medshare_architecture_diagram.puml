@@ -4,47 +4,66 @@ title MedShare Architecture: Privacy-Preserving Federated Learning
 
 package "Hospital Node (Client)" {
     [Data Loader] as DL
-    [Preprocessing (Standard scaler)] as PRE
+    [Bloom Filter / Local Cache] as CACHE
+    [SMOTE & Data Balancing] as BAL
+    [Preprocessing (Standard Scaler)] as PRE
+    [Training Engine (FedProx)] as ENGINE
     [PyTorch Model (SurvivalMLP)] as MLP
     [Opacus Privacy Engine] as DP
-    [Bloom Filter / Local Cache] as CACHE
+    [SecAgg Cryptography] as SECAGG
     
-    DL -> PRE
-    PRE -> MLP
-    MLP <-> DP : "Add Noise (epsilon=1.0)"
+    DL <--> CACHE : "Load/Save .pt Binary"
+    DL -> BAL
+    BAL -> PRE
+    PRE -> ENGINE
+    ENGINE <-> MLP : "Local Training Loop"
+    ENGINE <-> DP : "Differential Privacy"
+    MLP -> SECAGG : "Raw Weights"
 }
 
 package "Aggregation Server (Central)" {
     [Flower ServerApp] as FL_SERVER
     [AnomalyMonitoringStrategy] as STRAT
     [Global Model State] as GLOBAL_NET
+    [BlockchainManager (Web3 Singleton)] as BCM
     
-    FL_SERVER -> STRAT : "Aggregate & Audit"
+    FL_SERVER -> STRAT : "Aggregate & Audit (FedAvg)"
     STRAT -> GLOBAL_NET : "Update Global Weights"
+    STRAT -> BCM : "Trigger Blockchain Audits"
 }
 
 package "Blockchain Network (Ganache)" {
     [CommitmentRegistry.sol] as REGISTRY
     [MedShareTask.sol] as TASK
+    [Reputation.sol] as REP
 }
 
 package "Analyst Dashboard" {
     [Vite Frontend] as UI
     [Visualization Scripts] as VIZ
+    [JSON Artifacts (ABIs)] as ARTIFACTS
 }
 
 ' Data Flow
-MLP --> FL_SERVER : "Model Updates (Gradients)"
-FL_SERVER --> MLP : "Global Parameters"
+SECAGG -up-> FL_SERVER : "Masked Updates (SecAgg)"
+FL_SERVER -down-> MLP : "Global Parameters"
 
-' Security Flow
-STRAT --> REGISTRY : "Post Final Model Hash"
-MLP --> REGISTRY : "Post Update Commitment (Hash)"
-REGISTRY --> UI : "Audit Logs (Gas Costs)"
+' Blockchain Interaction from Client
+MLP --> BCM : "Post Round Commitment (Hash)"
 
-' Visualization
-VIZ --> UI : "Generate PNG Plots"
+' Dashboard Data Pipeline
 GLOBAL_NET --> VIZ : "Checkpoint (best_model.pth)"
+GLOBAL_NET --> UI : "baseline.json / stats.json"
+VIZ --> UI : "Generate PNG Plots"
+
+' Security Flow (Blockchain)
+BCM --> REGISTRY : "Post Model Hash / Commitment"
+BCM --> REP : "Slash (-10) / Reward (+1)"
+BCM --> TASK : "Create / Complete / Claim"
+TASK --> REP : "Query Honest Score (IReputation)"
+REGISTRY --> UI : "Audit Logs (Gas Costs)"
+TASK --> ARTIFACTS : "Export ABIs"
+ARTIFACTS --> UI : "Contract Instances"
 
 note right of DP
   Ensures Local Data
@@ -54,6 +73,11 @@ end note
 note right of STRAT
   Filters malicious updates
   (Robust-MAD Defense)
+end note
+
+note right of BCM
+  Singleton wrapper — one
+  Web3 connection per process.
 end note
 
 @enduml

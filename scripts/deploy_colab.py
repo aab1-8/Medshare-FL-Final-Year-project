@@ -12,7 +12,7 @@ def deploy():
             provider = Web3(Web3.HTTPProvider(f"http://127.0.0.1:{port}"))
             if provider.is_connected():
                 w3 = provider
-                print(f"✅ Connected to Ganache on port {port}")
+                print(f"Connected to Ganache on port {port}")
                 break
         except: continue
     
@@ -63,16 +63,16 @@ def deploy():
             'gasPrice': w3.to_wei(1, 'gwei')
         })
         w3.eth.wait_for_transaction_receipt(tx_hash)
-        print("✅ Linking complete.")
+        print("[Success] Linking complete.")
 
         # --- NEW: Pre-authorize Hospital Accounts for Demo ---
-        print("Pre-authorizing hospital nodes (Accounts 1-5)...")
+        print("Pre-authorizing hospital nodes (Accounts 1-10)...")
         # Load CommitmentRegistry ABI to authorize there too
         with open("build/CommitmentRegistry.json", "r") as f:
             registry_abi = json.load(f)['abi']
         registry_contract = w3.eth.contract(address=commitment_addr, abi=registry_abi)
 
-        for i in range(1, 6):
+        for i in range(1, 11):
             if i < len(w3.eth.accounts):
                 acc = w3.eth.accounts[i]
                 # Authorize for Task joining
@@ -88,7 +88,7 @@ def deploy():
                     'gasPrice': w3.to_wei(1, 'gwei')
                 })
                 w3.eth.wait_for_transaction_receipt(tx_auth2)
-        print("✅ Authorization complete.")
+        print("[Success] Authorization complete.")
 
         # Save to build directory (for backend/clients)
         with open("build/deploy_info.json", "w") as f:
